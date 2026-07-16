@@ -1,0 +1,7 @@
+{
+  "course": "build-redis",
+  "language": "go",
+  "language_id": 60,
+  "entrypoint": "main.go",
+  "version": 1
+}
