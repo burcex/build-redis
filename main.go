@@ -7,56 +7,56 @@ import (
 	"strings"
 )
 
-func handleCommand(args []string) string {
-	cmd := strings.ToUpper(args[0])
-
-	switch cmd {
-	case "PING":
-		// TODO: Return "+PONG\r\n" for no args
-		// TODO: Return bulk string for PING <message>
-	}
-
-	return fmt.Sprintf("-ERR unknown command '%s'\r\n", cmd)
-}
-
-func encodeBulkString(s string) string {
+func eb(s string, ok bool) string {
+	if !ok { return "$-1\r\n" }
 	return fmt.Sprintf("$%d\r\n%s\r\n", len(s), s)
 }
+func es(s string) string { return fmt.Sprintf("+%s\r\n", s) }
+func ee(m string) string { return fmt.Sprintf("-%s\r\n", m) }
 
-func main() {
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
+func handle(args []string) string {
+	cmd := strings.ToUpper(args[0])
+	switch cmd {
+	case "PING":
+		if len(args) > 2{
+			 return ee("ERR wrong number of arguments for 'PING' command")
 		}
-		args := parseArgs(line)
-		response := handleCommand(args)
-		fmt.Print(response)
+		if len(args) == 1 { return es("PONG") }
+		return eb(args[1], true)
+	case "ECHO":
+		 if len(args) != 2 {
+			return ee("ERR wrong number of arguments for 'ECHO' command")
+		 }
+		return eb(args[1], true)
+	case "COMMAND":
+		if len(args) > 1 && strings.ToUpper(args[1]) == "DOCS" { return es("OK") }
+		return es("OK")
 	}
+	return ee(fmt.Sprintf("ERR unknown command '%s'", args[0]))
 }
 
 func parseArgs(line string) []string {
 	var args []string
-	var current strings.Builder
-	inQuotes := false
+	var cur strings.Builder
+	inQ := false
 	for _, ch := range line {
 		switch {
-		case ch == '"' && !inQuotes:
-			inQuotes = true
-		case ch == '"' && inQuotes:
-			inQuotes = false
-		case ch == ' ' && !inQuotes:
-			if current.Len() > 0 {
-				args = append(args, current.String())
-				current.Reset()
-			}
-		default:
-			current.WriteRune(ch)
+		case ch == '"' && !inQ: inQ = true
+		case ch == '"' && inQ: inQ = false
+		case ch == ' ' && !inQ:
+			if cur.Len() > 0 { args = append(args, cur.String()); cur.Reset() }
+		default: cur.WriteRune(ch)
 		}
 	}
-	if current.Len() > 0 {
-		args = append(args, current.String())
-	}
+	if cur.Len() > 0 { args = append(args, cur.String()) }
 	return args
+}
+
+func main() {
+	sc := bufio.NewScanner(os.Stdin)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" { continue }
+		fmt.Print(handle(parseArgs(line)))
+	}
 }
